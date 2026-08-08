@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript FAQ Chatbot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* Base Reset & Variables */
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+            --bot-bubble: #f3f4f6;
+            --user-bubble: #4f46e5;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: var(--text-main);
+        }
+
+        /* Chat UI Container */
+        .chat-container {
+            width: 100%;
+            max-width: 400px;
+            height: 80vh;
+            max-height: 700px;
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .chat-header {
+            background-color: var(--primary);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        /* Message Area */
+        .chat-box {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            scroll-behavior: smooth;
+        }
+
+        /* Message Bubbles */
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 16px;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .bot-msg {
+            background-color: var(--bot-bubble);
+            color: var(--text-main);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+
+        .user-msg {
+            background-color: var(--user-bubble);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        /* Input Area */
+        .input-area {
+            display: flex;
+            padding: 15px;
+            background-color: var(--card-bg);
+            border-top: 1px solid var(--border);
+        }
+
+        input[type="text"] {
+            flex-grow: 1;
+            padding: 12px 15px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            outline: none;
+            font-family: inherit;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--primary);
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            margin-left: 10px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        button:hover { background-color: var(--primary-hover); }
+        button:active { transform: scale(0.95); }
+
+        button svg { width: 20px; height: 20px; fill: currentColor; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Typing indicator */
+        .typing {
+            font-style: italic;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            align-self: flex-start;
+            margin-top: -5px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="chat-container">
+        <div class="chat-header">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            Store Support
+        </div>
+        
+        <div class="chat-box" id="chat-box">
+            <div class="message bot-msg">Hello! I'm the virtual assistant. You can ask me about returns, shipping, payments, or international delivery.</div>
+        </div>
+        <div class="typing" id="typing-indicator">Bot is typing...</div>
+
+        <form class="input-area" id="chat-form">
+            <input type="text" id="user-input" placeholder="Type your question..." autocomplete="off" required>
+            <button type="submit" title="Send">
+                <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+        </form>
+    </div>
+
+    <script>
+        // -----------------------------------------------------------
+        // 1. FAQ Dataset & Intent Keywords
+        // -----------------------------------------------------------
+        const faqDatabase = [
+            {
+                intent: "return_policy",
+                keywords: ["return", "refund", "policy", "back", "exchange", "money", "days"],
+                answer: "You can return any unused item within 30 days of purchase for a full refund."
+            },
+            {
+                intent: "tracking",
+                keywords: ["track", "order", "status", "where", "package", "shipment"],
+                answer: "Once your order ships, you will receive an email with a tracking link."
+            },
+            {
+                intent: "international_shipping",
+                keywords: ["international", "worldwide", "country", "countries", "global", "abroad", "outside"],
+                answer: "Yes, we ship to over 50 countries worldwide. Shipping fees apply at checkout."
+            },
+            {
+                intent: "payment_methods",
+                keywords: ["pay", "payment", "accept", "card", "visa", "mastercard", "paypal", "apple"],
+                answer: "We accept Visa, MasterCard, American Express, PayPal, and Apple Pay."
+            },
+            {
+                intent: "contact_support",
+                keywords: ["contact", "support", "help", "email", "call", "phone", "number", "human"],
+                answer: "You can email us at support@example.com or call 1-800-123-4567."
+            }
+        ];
+
+        // -----------------------------------------------------------
+        // 2. Custom NLP / Intent Matching Logic
+        // -----------------------------------------------------------
+        const stopWords = new Set(["a", "an", "the", "is", "are", "do", "does", "did", "to", "for", "of", "in", "on", "with", "can", "i", "you", "my", "your", "what", "how", "why", "when", "where", "it", "have", "has"]);
+
+        function preprocess(text) {
+            // Lowercase, remove punctuation, split into words, and filter out stop words
+            return text.toLowerCase()
+                       .replace(/[^\w\s]/g, '')
+                       .split(/\s+/)
+                       .filter(word => word.length > 0 && !stopWords.has(word));
+        }
+
+        function getBotResponse(userInput) {
+            const userTokens = preprocess(userInput);
+            
+            if (userTokens.length === 0) {
+                return "Could you please provide a little more detail?";
+            }
+
+            let bestMatch = null;
+            let highestScore = 0;
+
+            // Simple Jaccard-style scoring against predefined keywords
+            faqDatabase.forEach(faq => {
+                let matchCount = 0;
+                
+                userTokens.forEach(token => {
+                    // Check if the user's word partially or fully matches an FAQ keyword
+                    faq.keywords.forEach(keyword => {
+                        if (keyword.includes(token) || token.includes(keyword)) {
+                            matchCount++;
+                        }
+                    });
+                });
+
+                // Calculate a basic score based on how many keywords were matched
+                const score = matchCount / userTokens.length;
+
+                if (score > highestScore) {
+                    highestScore = score;
+                    bestMatch = faq;
+                }
+            });
+
+            // Set a threshold to ensure we don't return random answers for unrelated questions
+            if (highestScore >= 0.3) {
+                return bestMatch.answer;
+            } else {
+                return "I'm sorry, I couldn't find an answer to that. Please try rephrasing or contact support@example.com.";
+            }
+        }
+
+        // -----------------------------------------------------------
+        // 3. UI Interaction Logic
+        // -----------------------------------------------------------
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        const chatBox = document.getElementById('chat-box');
+        const typingIndicator = document.getElementById('typing-indicator');
+
+        function appendMessage(text, sender) {
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('message');
+            msgDiv.classList.add(sender === 'user' ? 'user-msg' : 'bot-msg');
+            msgDiv.textContent = text;
+            chatBox.appendChild(msgDiv);
+            
+            // Auto-scroll to bottom
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            // 1. Append User Message
+            appendMessage(text, 'user');
+            userInput.value = '';
+
+            // 2. Show typing indicator
+            typingIndicator.style.display = 'block';
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            // 3. Simulate network delay for natural feel
+            setTimeout(() => {
+                typingIndicator.style.display = 'none';
+                
+                // Get AI Response and append
+                const response = getBotResponse(text);
+                appendMessage(response, 'bot');
+            }, 600); // 600ms delay
+        });
+    </script>
+</body>
+</html>
