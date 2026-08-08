@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flashcard Quiz App</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* Base Reset & Variables */
+        :root {
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+            --danger: #ef4444;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+        }
+
+        h1, h2 { text-align: center; margin-bottom: 20px; color: var(--text-main); }
+
+        /* --- Viewer Section --- */
+        .viewer-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+
+        /* 3D Card Flip Implementation */
+        .flashcard-container {
+            width: 100%;
+            height: 250px;
+            perspective: 1000px; /* Gives the 3D effect */
+            margin-bottom: 20px;
+        }
+
+        .flashcard {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            cursor: pointer;
+        }
+
+        .flashcard.flipped { transform: rotateY(180deg); }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden; /* Hides the back when front is showing */
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .card-front { z-index: 2; }
+        .card-back { transform: rotateY(180deg); background-color: #f8fafc; }
+
+        .label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .card-text { font-size: 1.25rem; font-weight: 500; line-height: 1.5; }
+
+        /* Navigation Controls */
+        .controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+        
+        .btn-secondary { background-color: white; color: var(--text-main); border: 1px solid var(--border); }
+        .btn-secondary:hover { background-color: #f9fafb; }
+        .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-danger { background-color: white; color: var(--danger); border: 1px solid var(--danger); padding: 6px 12px; font-size: 0.85rem;}
+        .btn-danger:hover { background-color: #fef2f2; }
+
+        .btn-edit { background-color: white; color: var(--primary); border: 1px solid var(--primary); padding: 6px 12px; font-size: 0.85rem; margin-right: 5px;}
+        .btn-edit:hover { background-color: #eff6ff; }
+
+        .counter { font-size: 0.95rem; color: var(--text-muted); font-weight: 500; }
+
+        /* --- Manager Section --- */
+        .manager-section {
+            background-color: var(--card-bg);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border);
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus { border-color: var(--primary); }
+
+        .list-container { margin-top: 30px; }
+        
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .list-item:last-child { border-bottom: none; }
+
+        .item-text {
+            flex-grow: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-right: 15px;
+            font-size: 0.95rem;
+        }
+
+        .empty-state { text-align: center; color: var(--text-muted); padding: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Study Flashcards</h1>
+
+        <!-- Viewer Section -->
+        <div class="viewer-section">
+            <div class="flashcard-container">
+                <div class="flashcard" id="flashcard">
+                    <div class="card-face card-front">
+                        <span class="label">Question</span>
+                        <div class="card-text" id="front-text">Loading...</div>
+                    </div>
+                    <div class="card-face card-back">
+                        <span class="label">Answer</span>
+                        <div class="card-text" id="back-text">Loading...</div>
+                    </div>
+                </div>
+            </div>
+            
+            <button class="btn btn-primary" id="flip-btn" style="width: 100%; margin-bottom: 20px;">Show Answer</button>
+
+            <div class="controls">
+                <button class="btn btn-secondary" id="prev-btn">Previous</button>
+                <span class="counter" id="counter">0 / 0</span>
+                <button class="btn btn-secondary" id="next-btn">Next</button>
+            </div>
+        </div>
+
+        <!-- Manager Section -->
+        <div class="manager-section">
+            <h2 id="form-title">Add New Flashcard</h2>
+            <form id="card-form">
+                <div class="form-group">
+                    <input type="text" id="question-input" placeholder="Question (Front)" required autocomplete="off">
+                    <input type="text" id="answer-input" placeholder="Answer (Back)" required autocomplete="off">
+                </div>
+                <button type="submit" class="btn btn-primary" id="submit-btn" style="width: 100%;">Add Card</button>
+                <button type="button" class="btn btn-secondary" id="cancel-edit-btn" style="width: 100%; margin-top: 10px; display: none;">Cancel Edit</button>
+            </form>
+
+            <div class="list-container">
+                <h3 style="margin-bottom: 15px; font-size: 1.1rem; color: var(--text-main);">Your Deck</h3>
+                <div id="card-list">
+                    <!-- Cards will populate here via JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Default data if storage is empty
+        const defaultCards = [
+            { question: "What does HTML stand for?", answer: "HyperText Markup Language" },
+            { question: "What is the capital of Japan?", answer: "Tokyo" },
+            { question: "What is 8 x 7?", answer: "56" }
+        ];
+
+        // State variables
+        let flashcards = JSON.parse(localStorage.getItem('flashcards')) || defaultCards;
+        let currentIndex = 0;
+        let editingIndex = -1;
+
+        // DOM Elements - Viewer
+        const flashcard = document.getElementById('flashcard');
+        const frontText = document.getElementById('front-text');
+        const backText = document.getElementById('back-text');
+        const flipBtn = document.getElementById('flip-btn');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const counter = document.getElementById('counter');
+
+        // DOM Elements - Manager
+        const cardForm = document.getElementById('card-form');
+        const questionInput = document.getElementById('question-input');
+        const answerInput = document.getElementById('answer-input');
+        const submitBtn = document.getElementById('submit-btn');
+        const cancelEditBtn = document.getElementById('cancel-edit-btn');
+        const formTitle = document.getElementById('form-title');
+        const cardList = document.getElementById('card-list');
+
+        // --- Core Functions ---
+
+        function saveToStorage() {
+            localStorage.setItem('flashcards', JSON.stringify(flashcards));
+        }
+
+        function renderViewer() {
+            if (flashcards.length === 0) {
+                frontText.textContent = "No cards available.";
+                backText.textContent = "Add a card below.";
+                counter.textContent = "0 / 0";
+                prevBtn.disabled = true;
+                nextBtn.disabled = true;
+                flipBtn.disabled = true;
+                return;
+            }
+
+            // Ensure index is within bounds (e.g., after deletion)
+            if (currentIndex >= flashcards.length) currentIndex = flashcards.length - 1;
+            
+            const currentCard = flashcards[currentIndex];
+            frontText.textContent = currentCard.question;
+            backText.textContent = currentCard.answer;
+            counter.textContent = `${currentIndex + 1} / ${flashcards.length}`;
+
+            // Reset flip state when card changes
+            flashcard.classList.remove('flipped');
+            flipBtn.textContent = "Show Answer";
+
+            // Manage button states
+            prevBtn.disabled = currentIndex === 0;
+            nextBtn.disabled = currentIndex === flashcards.length - 1;
+            flipBtn.disabled = false;
+        }
+
+        function renderList() {
+            cardList.innerHTML = '';
+
+            if (flashcards.length === 0) {
+                cardList.innerHTML = '<div class="empty-state">No flashcards yet. Create one above!</div>';
+                return;
+            }
+
+            flashcards.forEach((card, index) => {
+                const item = document.createElement('div');
+                item.className = 'list-item';
+                
+                const textDiv = document.createElement('div');
+                textDiv.className = 'item-text';
+                textDiv.textContent = `Q: ${card.question}`;
+                
+                const actionsDiv = document.createElement('div');
+                
+                const editBtn = document.createElement('button');
+                editBtn.className = 'btn-edit';
+                editBtn.textContent = 'Edit';
+                editBtn.onclick = () => loadEdit(index);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn-danger';
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.onclick = () => deleteCard(index);
+
+                actionsDiv.appendChild(editBtn);
+                actionsDiv.appendChild(deleteBtn);
+                
+                item.appendChild(textDiv);
+                item.appendChild(actionsDiv);
+                
+                cardList.appendChild(item);
+            });
+        }
+
+        function updateUI() {
+            saveToStorage();
+            renderViewer();
+            renderList();
+        }
+
+        // --- Event Handlers & Actions ---
+
+        // Flip mechanism
+        function toggleFlip() {
+            if(flashcards.length === 0) return;
+            flashcard.classList.toggle('flipped');
+            if (flashcard.classList.contains('flipped')) {
+                flipBtn.textContent = "Show Question";
+            } else {
+                flipBtn.textContent = "Show Answer";
+            }
+        }
+
+        flashcard.addEventListener('click', toggleFlip);
+        flipBtn.addEventListener('click', toggleFlip);
+
+        // Navigation
+        prevBtn.addEventListener('click', () => {
+            if (currentIndex > 0) {
+                currentIndex--;
+                renderViewer();
+            }
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (currentIndex < flashcards.length - 1) {
+                currentIndex++;
+                renderViewer();
+            }
+        });
+
+        // Add / Edit form submission
+        cardForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const q = questionInput.value.trim();
+            const a = answerInput.value.trim();
+            
+            if (!q || !a) return;
+
+            if (editingIndex > -1) {
+                // Update existing
+                flashcards[editingIndex] = { question: q, answer: a };
+                resetForm();
+            } else {
+                // Add new
+                flashcards.push({ question: q, answer: a });
+                currentIndex = flashcards.length - 1; // Jump to newly added card
+                resetForm();
+            }
+            updateUI();
+        });
+
+        // Edit Mode Setup
+        function loadEdit(index) {
+            editingIndex = index;
+            questionInput.value = flashcards[index].question;
+            answerInput.value = flashcards[index].answer;
+            formTitle.textContent = "Edit Flashcard";
+            submitBtn.textContent = "Update Card";
+            cancelEditBtn.style.display = "block";
+            
+            // Scroll down to form smoothly
+            cardForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        // Cancel Edit
+        cancelEditBtn.addEventListener('click', resetForm);
+
+        function resetForm() {
+            editingIndex = -1;
+            questionInput.value = '';
+            answerInput.value = '';
+            formTitle.textContent = "Add New Flashcard";
+            submitBtn.textContent = "Add Card";
+            cancelEditBtn.style.display = "none";
+        }
+
+        // Delete Card
+        function deleteCard(index) {
+            if (confirm("Are you sure you want to delete this card?")) {
+                flashcards.splice(index, 1);
+                
+                // Adjust viewer index if we deleted the current card or a preceding card
+                if (currentIndex >= flashcards.length) {
+                    currentIndex = Math.max(0, flashcards.length - 1);
+                }
+                
+                if (editingIndex === index) {
+                    resetForm();
+                }
+
+                updateUI();
+            }
+        }
+
+        // Initialize App
+        updateUI();
+
+    </script>
+</body>
+</html>
